@@ -29,4 +29,6 @@ public class LoginAuditDTO {
 
     private LocalDateTime accessDateTime;
 
+    private String ip;
+
 }

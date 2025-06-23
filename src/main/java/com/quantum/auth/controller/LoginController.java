@@ -2,6 +2,8 @@ package com.quantum.auth.controller;
 
 import java.util.Map;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,10 +55,17 @@ public class LoginController {
 
 
     @PostMapping("/login")
-    public ResponseEntity<JwtResponse> login(@RequestBody JwtRequest req) throws Exception {
+    public ResponseEntity<JwtResponse> login(@RequestBody JwtRequest req, HttpServletRequest request) throws Exception {
         LoginAuditDTO loginAuditDTO = new LoginAuditDTO();
         loginAuditDTO.setUsername(req.getUsername().toLowerCase());
         loginAuditDTO.setAccessDateTime(java.time.LocalDateTime.now());
+
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty()) {
+            ip = request.getRemoteAddr();
+        }
+
+        loginAuditDTO.setIp(ip);
 
         try {
             // Validar reCAPTCHA si está habilitado
@@ -102,6 +111,7 @@ public class LoginController {
     @PostMapping("/refresh-token")
     public ResponseEntity<JwtResponse> refreshToken(@RequestBody Map<String, String> tokenRequest) throws Exception {
         // Extraer el refresh token del cuerpo de la solicitud
+        String accessToken = tokenRequest.get("access_token");
         String refreshToken = tokenRequest.get("refresh_token");
 
         // Validar si el refresh token es nulo o está vacío
@@ -118,9 +128,20 @@ public class LoginController {
         if (jwtTokenUtil.isTokenExpired(refreshToken)) {
             return ResponseEntity.badRequest().body(new JwtResponse(null, "Refresh token has expired"));
         }
-
+        
         // Extraer el nombre de usuario desde el refresh token
         String username = jwtTokenUtil.getUsernameFromToken(refreshToken);
+
+        // INVALIDAR EL ACCESS TOKEN Y EL REFRESH TOKEN
+        if (accessToken != null && !accessToken.trim().isEmpty()) {
+            // Invalidar el access token en la base de datos
+            jwtTokenUtil.revokeToken(accessToken);
+        }
+
+        if (refreshToken != null && !refreshToken.trim().isEmpty()) {
+            // Invalidar el refresh token en la base de datos
+            jwtTokenUtil.revokeToken(refreshToken);
+        }
 
         // Cargar los detalles del usuario
         final UserDetails userDetails = jwtUserDetailsService.loadUserByUsername(username);

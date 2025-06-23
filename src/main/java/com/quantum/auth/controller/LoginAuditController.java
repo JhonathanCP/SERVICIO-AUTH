@@ -10,6 +10,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.quantum.auth.service.ILoginAuditService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -58,7 +59,15 @@ public class LoginAuditController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> save(@Valid @RequestBody LoginAuditDTO dto) {
+    public ResponseEntity<Void> save(@Valid @RequestBody LoginAuditDTO dto, HttpServletRequest request) {
+
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty()) {
+            ip = request.getRemoteAddr();
+        }
+
+        dto.setIp(ip);
+
         LoginAudit p = service.save(mapper.map(dto, LoginAudit.class));
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(p.getIdLoginAudit()).toUri();
         return ResponseEntity.created(location).build();

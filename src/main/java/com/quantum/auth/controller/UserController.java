@@ -1,10 +1,13 @@
 package com.quantum.auth.controller;
 
+import org.apache.commons.lang3.RandomStringUtils;
+
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -31,6 +34,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 @RestController
 @RequestMapping("/users")
 public class UserController {
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Autowired
     private IUserService userService;
@@ -60,8 +66,17 @@ public class UserController {
     @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
     @PostMapping
     public ResponseEntity<Void> save(@Valid @RequestBody UserDTO dto) {
+        // Generar una contraseña aleatoria segura (12 caracteres alfanuméricos)
+        String rawPassword = RandomStringUtils.randomAlphanumeric(12);
+        String encodedPassword = passwordEncoder.encode(rawPassword);
+        dto.setPassword(encodedPassword);
+
         User p = userService.save(mapper.map(dto, User.class));
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(p.getIdUser()).toUri();
+
+        // Opcional: puedes retornar la contraseña generada en el body o por otro canal seguro
+        // return ResponseEntity.created(location).body(rawPassword);
+
         return ResponseEntity.created(location).build();
     }
 

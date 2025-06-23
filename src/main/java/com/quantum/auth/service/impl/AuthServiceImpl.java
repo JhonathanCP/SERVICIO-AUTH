@@ -17,7 +17,9 @@ public class AuthServiceImpl { //Para uso de acceso usando @PreAuthorize
         var rpta = false;
         val methodRole = switch (path) {
             case "ADMIN" -> "ADMIN";
-            case "USER" -> "DIRECTOR,OPERATIVO";
+            case "PRESUPUESTO" -> "ADMIN,UPRESUPUESTO";
+            case "PLANEAMIENTO" -> "ADMIN,UPLANEAMIENTO";
+            case "DEPENDENCIA" -> "ADMIN,UDEPENDENCIA";
             default -> "";
         };
 

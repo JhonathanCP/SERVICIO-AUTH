@@ -48,4 +48,7 @@ public class LoginAudit {
         this.accessDateTime = LocalDateTime.now();
     }
 
+    @Column(length = 45)
+    private String ip;
+
 }

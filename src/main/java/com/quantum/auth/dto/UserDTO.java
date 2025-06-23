@@ -28,15 +28,14 @@ public class UserDTO {
     @Size(max = 250)
     private String email;
 
-    @NotNull
     @Size(max = 80)
     private String password;
 
     @NotNull
-    private Boolean ldap;
+    private Boolean ldap = false;
 
     @NotNull
-    private Boolean enabled;
+    private Boolean enabled = true;
 
     @NotNull
     private List<RoleDTO> roles;
