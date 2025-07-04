@@ -52,7 +52,7 @@ public class JwtTokenUtil implements Serializable {
                 .collect(Collectors.joining(","))); // ADMIN,USER,DBA
         claims.put("type", "access");
         claims.put("id", user.getIdUser()); // <-- Se agrega el idUser al token
-
+        claims.put("dependencies", user.getDependencies());
         String token = doGenerateToken(claims, userDetails.getUsername(), JWT_TOKEN_VALIDITY);
 
         // Guardar el token en la base de datos

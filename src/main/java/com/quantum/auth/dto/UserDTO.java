@@ -40,4 +40,6 @@ public class UserDTO {
     @NotNull
     private List<RoleDTO> roles;
 
+    private List<DependencyDTO> dependencies;
+
 }

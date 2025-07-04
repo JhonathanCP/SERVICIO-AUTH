@@ -108,7 +108,7 @@ public class LoginController {
     }
 
     // Endpoint para refrescar el token
-    @PostMapping("/refresh-token")
+    @PostMapping("/refresh-tokens")
     public ResponseEntity<JwtResponse> refreshToken(@RequestBody Map<String, String> tokenRequest) throws Exception {
         // Extraer el refresh token del cuerpo de la solicitud
         String accessToken = tokenRequest.get("access_token");
@@ -157,7 +157,7 @@ public class LoginController {
     }
 
     // Endpoint para dar de baja el token
-    @PostMapping("/logout-token")
+    @PostMapping("/logout-tokens")
     public ResponseEntity<String> logout(@RequestBody Map<String, String> tokenRequest) throws Exception{
         String accessToken = tokenRequest.get("access_token");
         String refreshToken = tokenRequest.get("refresh_token");

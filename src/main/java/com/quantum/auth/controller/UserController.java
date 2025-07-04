@@ -18,14 +18,24 @@ import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.quantum.auth.dto.ChangePasswordDTO;
+import com.quantum.auth.dto.DependencyDTO;
+import com.quantum.auth.dto.RoleDTO;
 import com.quantum.auth.dto.UserDTO;
 import com.quantum.auth.exception.ModelNotFoundException;
+import com.quantum.auth.kafka.EmailRequest;
+import com.quantum.auth.kafka.producer.KafkaProducerService;
+import com.quantum.auth.model.Dependency;
+import com.quantum.auth.model.Role;
 import com.quantum.auth.model.User;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,6 +44,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 @RestController
 @RequestMapping("/users")
 public class UserController {
+
+    @Autowired
+    private KafkaProducerService kafkaProducerService;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -66,16 +79,31 @@ public class UserController {
     @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
     @PostMapping
     public ResponseEntity<Void> save(@Valid @RequestBody UserDTO dto) {
-        // Generar una contraseña aleatoria segura (12 caracteres alfanuméricos)
-        String rawPassword = RandomStringUtils.randomAlphanumeric(12);
+        // Generar contraseña aleatoria
+        String rawPassword = RandomStringUtils.randomAlphanumeric(6);
         String encodedPassword = passwordEncoder.encode(rawPassword);
         dto.setPassword(encodedPassword);
 
-        User p = userService.save(mapper.map(dto, User.class));
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(p.getIdUser()).toUri();
+        User savedUser = userService.save(mapper.map(dto, User.class));
 
-        // Opcional: puedes retornar la contraseña generada en el body o por otro canal seguro
-        // return ResponseEntity.created(location).body(rawPassword);
+        // Notificar a Kafka
+        dto.setIdUser(savedUser.getIdUser());
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("username", dto.getUsername());
+        variables.put("password", rawPassword); // ⚠️ Solo si lo vas a mandar por correo
+
+        EmailRequest emailRequest = new EmailRequest();
+        emailRequest.setTo(dto.getEmail());
+        emailRequest.setSubject("Tu cuenta ha sido creada");
+        emailRequest.setTemplateName("new-user.html");
+        emailRequest.setVariables(variables);
+
+        kafkaProducerService.sendEmailEvent(emailRequest);
+
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                            .path("/{id}")
+                            .buildAndExpand(savedUser.getIdUser())
+                            .toUri();
 
         return ResponseEntity.created(location).build();
     }
@@ -110,6 +138,128 @@ public class UserController {
             userService.delete(id);
         }
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
+    @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
+    @PostMapping("/{id}/reset-password")
+    public ResponseEntity<Void> resetPassword(@PathVariable Integer id) {
+        User user = userService.findById(id);
+        if (user == null) {
+            throw new ModelNotFoundException("ID DOES NOT EXIST: " + id);
+        }
+
+        String rawPassword = RandomStringUtils.randomAlphanumeric(6);
+        String encodedPassword = passwordEncoder.encode(rawPassword);
+        user.setPassword(encodedPassword);
+        userService.update(user);
+
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("username", user.getUsername());
+        variables.put("password", rawPassword);
+
+        EmailRequest emailRequest = new EmailRequest();
+        emailRequest.setTo(user.getEmail());
+        emailRequest.setSubject("Tu contraseña ha sido restablecida");
+        emailRequest.setTemplateName("reset-password.html");
+        emailRequest.setVariables(variables);
+
+        kafkaProducerService.sendEmailEvent(emailRequest);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
+    @PostMapping("/{id}/change-password")
+    public ResponseEntity<Void> changePassword(
+            @PathVariable Integer id,
+            @RequestBody ChangePasswordDTO dto) {
+        User user = userService.findById(id);
+        if (user == null) {
+            throw new ModelNotFoundException("ID DOES NOT EXIST: " + id);
+        }
+
+        String encodedPassword = passwordEncoder.encode(dto.getPassword());
+        user.setPassword(encodedPassword);
+        userService.update(user);
+
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("username", user.getUsername());
+        variables.put("password", dto.getPassword());
+
+        EmailRequest emailRequest = new EmailRequest();
+        emailRequest.setTo(user.getEmail());
+        emailRequest.setSubject("Tu contraseña ha sido cambiada");
+        emailRequest.setTemplateName("change-password.html");
+        emailRequest.setVariables(variables);
+
+        kafkaProducerService.sendEmailEvent(emailRequest);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
+    @PatchMapping("/{id}/add-role")
+    public ResponseEntity<Void> addRole(@PathVariable Integer id, @RequestBody RoleDTO dto) {
+        User user = userService.findById(id);
+        if (user == null) throw new ModelNotFoundException("ID DOES NOT EXIST: " + id);
+
+        Role role = userService.findRoleById(dto.getIdRole());
+        if (role == null) throw new ModelNotFoundException("ROLE DOES NOT EXIST: " + dto.getIdRole());
+
+        if (!user.getRoles().contains(role)) {
+            user.getRoles().add(role);
+            userService.update(user);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
+    @PatchMapping("/{id}/remove-role")
+    public ResponseEntity<Void> removeRole(@PathVariable Integer id, @RequestBody RoleDTO dto) {
+        User user = userService.findById(id);
+        if (user == null) throw new ModelNotFoundException("ID DOES NOT EXIST: " + id);
+
+        Role role = userService.findRoleById(dto.getIdRole());
+        if (role == null) throw new ModelNotFoundException("ROLE DOES NOT EXIST: " + dto.getIdRole());
+
+        user.getRoles().remove(role);
+        userService.update(user);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
+    @PatchMapping("/{id}/add-dependency")
+    public ResponseEntity<Void> addDependency(@PathVariable Integer id, @RequestBody DependencyDTO dto) {
+        User user = userService.findById(id);
+        if (user == null) throw new ModelNotFoundException("ID DOES NOT EXIST: " + id);
+
+        Dependency dependency = userService.findDependencyById(dto.getIdDependency());
+        if (dependency == null) throw new ModelNotFoundException("DEPENDENCY DOES NOT EXIST: " + dto.getIdDependency());
+
+        boolean hasUDependency = user.getRoles().stream().anyMatch(r -> "UDEPENDENCY".equalsIgnoreCase(r.getName()));
+        if (hasUDependency && user.getDependencies().size() >= 1) {
+            throw new IllegalStateException("Un usuario con rol UDEPENDENCY solo puede tener una dependencia.");
+        }
+
+        if (!user.getDependencies().contains(dependency)) {
+            user.getDependencies().add(dependency);
+            userService.update(user);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
+    @PatchMapping("/{id}/remove-dependency")
+    public ResponseEntity<Void> removeDependency(@PathVariable Integer id, @RequestBody DependencyDTO dto) {
+        User user = userService.findById(id);
+        if (user == null) throw new ModelNotFoundException("ID DOES NOT EXIST: " + id);
+
+        Dependency dependency = userService.findDependencyById(dto.getIdDependency());
+        if (dependency == null) throw new ModelNotFoundException("DEPENDENCY DOES NOT EXIST: " + dto.getIdDependency());
+
+        user.getDependencies().remove(dependency);
+        userService.update(user);
+        return ResponseEntity.noContent().build();
     }
 
 }

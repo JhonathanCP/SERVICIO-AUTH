@@ -51,4 +51,10 @@ public class User {
         inverseJoinColumns = @JoinColumn(name = "id_role", referencedColumnName = "idRole"))
     private List<Role> roles;
 
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "user_dependency", 
+        joinColumns = @JoinColumn(name = "id_user", referencedColumnName = "idUser"),
+        inverseJoinColumns = @JoinColumn(name = "id_dependency", referencedColumnName = "idDependency"))
+    private List<Dependency> dependencies;
+
 }
