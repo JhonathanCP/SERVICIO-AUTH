@@ -35,13 +35,43 @@ public class UserServiceImpl extends CRUDImpl<User, Integer> implements IUserSer
     }
 
     @Override
-    public Role findRoleById(Integer id) {
-        return roleRepo.findById(id).orElse(null);
+    public void addRole(Integer userId, Integer roleId) {
+        User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        Role role = roleRepo.findById(roleId).orElseThrow(() -> new RuntimeException("Role not found"));
+        if (!user.getRoles().contains(role)) {
+            user.getRoles().add(role);
+            userRepo.save(user);
+        }
     }
 
     @Override
-    public Dependency findDependencyById(Integer id) {
-        return dependencyRepo.findById(id).orElse(null);
+    public void removeRole(Integer userId, Integer roleId) {
+        User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        Role role = roleRepo.findById(roleId).orElseThrow(() -> new RuntimeException("Role not found"));
+        user.getRoles().remove(role);
+        userRepo.save(user);
+    }
+
+    @Override
+    public void addDependency(Integer userId, Integer dependencyId) {
+        User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        Dependency dependency = dependencyRepo.findById(dependencyId).orElseThrow(() -> new RuntimeException("Dependency not found"));
+        boolean hasUDependency = user.getRoles().stream().anyMatch(r -> "UDEPENDENCY".equalsIgnoreCase(r.getName()));
+        if (hasUDependency && user.getDependencies().size() >= 1) {
+            throw new IllegalStateException("Un usuario con rol UDEPENDENCY solo puede tener una dependencia.");
+        }
+        if (!user.getDependencies().contains(dependency)) {
+            user.getDependencies().add(dependency);
+            userRepo.save(user);
+        }
+    }
+
+    @Override
+    public void removeDependency(Integer userId, Integer dependencyId) {
+        User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        Dependency dependency = dependencyRepo.findById(dependencyId).orElseThrow(() -> new RuntimeException("Dependency not found"));
+        user.getDependencies().remove(dependency);
+        userRepo.save(user);
     }
     
 }

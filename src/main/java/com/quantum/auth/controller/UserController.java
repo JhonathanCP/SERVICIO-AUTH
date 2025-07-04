@@ -18,7 +18,6 @@ import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.net.URI;
@@ -34,8 +33,6 @@ import com.quantum.auth.dto.UserDTO;
 import com.quantum.auth.exception.ModelNotFoundException;
 import com.quantum.auth.kafka.EmailRequest;
 import com.quantum.auth.kafka.producer.KafkaProducerService;
-import com.quantum.auth.model.Dependency;
-import com.quantum.auth.model.Role;
 import com.quantum.auth.model.User;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -198,67 +195,30 @@ public class UserController {
     }
 
     @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
-    @PatchMapping("/{id}/add-role")
+    @PostMapping("/{id}/add-role")
     public ResponseEntity<Void> addRole(@PathVariable Integer id, @RequestBody RoleDTO dto) {
-        User user = userService.findById(id);
-        if (user == null) throw new ModelNotFoundException("ID DOES NOT EXIST: " + id);
-
-        Role role = userService.findRoleById(dto.getIdRole());
-        if (role == null) throw new ModelNotFoundException("ROLE DOES NOT EXIST: " + dto.getIdRole());
-
-        if (!user.getRoles().contains(role)) {
-            user.getRoles().add(role);
-            userService.update(user);
-        }
+        userService.addRole(id, dto.getIdRole());
         return ResponseEntity.noContent().build();
     }
 
     @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
-    @PatchMapping("/{id}/remove-role")
+    @PostMapping("/{id}/remove-role")
     public ResponseEntity<Void> removeRole(@PathVariable Integer id, @RequestBody RoleDTO dto) {
-        User user = userService.findById(id);
-        if (user == null) throw new ModelNotFoundException("ID DOES NOT EXIST: " + id);
-
-        Role role = userService.findRoleById(dto.getIdRole());
-        if (role == null) throw new ModelNotFoundException("ROLE DOES NOT EXIST: " + dto.getIdRole());
-
-        user.getRoles().remove(role);
-        userService.update(user);
+        userService.removeRole(id, dto.getIdRole());
         return ResponseEntity.noContent().build();
     }
 
     @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
-    @PatchMapping("/{id}/add-dependency")
+    @PostMapping("/{id}/add-dependency")
     public ResponseEntity<Void> addDependency(@PathVariable Integer id, @RequestBody DependencyDTO dto) {
-        User user = userService.findById(id);
-        if (user == null) throw new ModelNotFoundException("ID DOES NOT EXIST: " + id);
-
-        Dependency dependency = userService.findDependencyById(dto.getIdDependency());
-        if (dependency == null) throw new ModelNotFoundException("DEPENDENCY DOES NOT EXIST: " + dto.getIdDependency());
-
-        boolean hasUDependency = user.getRoles().stream().anyMatch(r -> "UDEPENDENCY".equalsIgnoreCase(r.getName()));
-        if (hasUDependency && user.getDependencies().size() >= 1) {
-            throw new IllegalStateException("Un usuario con rol UDEPENDENCY solo puede tener una dependencia.");
-        }
-
-        if (!user.getDependencies().contains(dependency)) {
-            user.getDependencies().add(dependency);
-            userService.update(user);
-        }
+        userService.addDependency(id, dto.getIdDependency());
         return ResponseEntity.noContent().build();
     }
 
     @PreAuthorize("@authServiceImpl.hasAccess('ADMIN')")
-    @PatchMapping("/{id}/remove-dependency")
+    @PostMapping("/{id}/remove-dependency")
     public ResponseEntity<Void> removeDependency(@PathVariable Integer id, @RequestBody DependencyDTO dto) {
-        User user = userService.findById(id);
-        if (user == null) throw new ModelNotFoundException("ID DOES NOT EXIST: " + id);
-
-        Dependency dependency = userService.findDependencyById(dto.getIdDependency());
-        if (dependency == null) throw new ModelNotFoundException("DEPENDENCY DOES NOT EXIST: " + dto.getIdDependency());
-
-        user.getDependencies().remove(dependency);
-        userService.update(user);
+        userService.removeDependency(id, dto.getIdDependency());
         return ResponseEntity.noContent().build();
     }
 

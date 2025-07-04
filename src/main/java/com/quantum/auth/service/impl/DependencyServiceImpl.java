@@ -18,4 +18,9 @@ public class DependencyServiceImpl extends CRUDImpl<Dependency, Integer> impleme
         return repo;
     }
 
+    @Override
+    public Dependency findDependencyById(Integer id) {
+        return repo.findById(id).orElse(null);
+    }
+
 }
