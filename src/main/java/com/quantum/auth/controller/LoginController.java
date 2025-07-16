@@ -101,10 +101,12 @@ public class LoginController {
 
             return ResponseEntity.ok(new JwtResponse(accessToken, refreshToken));
         } catch (Exception e) {
+            e.printStackTrace(); // <-- Esto imprimirá el error real en consola/log
             loginAuditDTO.setSuccess(false);
             loginAuditService.save(mapper.map(loginAuditDTO, LoginAudit.class));
-            throw new ModelNotFoundException("INCORRECT PASSWORD");
+            throw new ModelNotFoundException("LOGIN FAILED: " + e.getMessage()); // <- para que devuelva el mensaje real
         }
+
     }
 
     // Endpoint para refrescar el token

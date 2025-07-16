@@ -1,6 +1,6 @@
 CREATE TABLE tokens (
     id SERIAL PRIMARY KEY,
-    token VARCHAR(500) NOT NULL,
+    token VARCHAR(1000) NOT NULL,
     username VARCHAR(255) NOT NULL,
     token_type VARCHAR(10) NOT NULL,  -- 'access' o 'refresh'
     expiration TIMESTAMP NOT NULL,
